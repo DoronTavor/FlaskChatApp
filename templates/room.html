@@ -1,10 +1,102 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <title>Title</title>
-</head>
-<body>
+{% extends 'base.html' %}
+{% block content %}
+<div class="message-box">
+    <h2> Chat Room: {{code}}</h2>
+    <h2> User Name: {{name}}</h2>
+    <button type="button" name="print" id="print-btn" onclick="printChat()">Print Chat</button>
+    <div class="messages" id="messages"></div>
+    <div class="input">
+        <input type="text" rows="3" placeholder="Message" name="message" id="message"/>
+        <button type="button" name="send" id="send-btn" onclick="sendMessage()">Send </button>
+        <button type="button" name="save" id="save-btn" onclick="saveMessages()">Save Messages</button>
+        <button type="button" name="record" id="record-btn" onclick="startRecording()">Record Message</button>
 
-</body>
-</html>
+
+
+    </div>
+</div>
+<script type="text/javascript">
+    var socketio= io();
+    let recognition;
+    const messages= document.getElementById("messages");
+    const createMessage= (name,msg) =>{
+        const content= `
+        <div class="text">
+            <span>
+                <strong> ${name}</strong>: ${msg}
+            </span>
+            <span class="muted">
+                ${new Date().toLocaleString()}
+            </span>
+        </div>
+
+        `;
+        messages.innerHTML +=content;
+    };
+    socketio.on("message",(data)=>{
+        createMessage(data.name,data.message);
+    });
+    const sendMessage= () =>{
+        const message=document.getElementById("message");
+        if(message.value=="" ) return;
+        socketio.emit("message",{data:message.value});
+        message.value="";
+
+
+    }
+     const saveMessages = () => {
+
+        fetch("/save_messages", {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+            },
+            body: JSON.stringify({}),
+        })
+        .then(response => response.json())
+        .then(data => {
+            // Handle the response if needed
+            console.log(data);
+        })
+        .catch(error => console.error("Error:", error));
+    };
+    const printChat = () => {
+        window.print();
+    };
+    const startRecording = () => {
+        if ('webkitSpeechRecognition' in window) {
+            recognition = new webkitSpeechRecognition();
+            recognition.continuous = true;
+            recognition.interimResults = true;
+
+            recognition.onresult = (event) => {
+                const result = event.results[event.results.length - 1];
+                const transcript = result[0].transcript;
+                document.getElementById('message').value = transcript;
+            };
+
+            recognition.onerror = (event) => {
+                console.error('Speech recognition error:', event.error);
+            };
+
+            recognition.onend = () => {
+                console.log('Speech recognition ended');
+            };
+
+            recognition.start();
+        } else {
+            alert('Speech recognition is not supported in your browser.');
+        }
+    };
+
+
+
+
+
+</script>
+{%for msg in messages%}
+    <script type="text/javascript">
+        createMessage("{{msg.name}}","{{msg.message}}");
+    </script>
+{% endfor %}{% endblock %}
+
