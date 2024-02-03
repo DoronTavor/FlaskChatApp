@@ -3,16 +3,18 @@
 <div class="message-box">
     <h2> Chat Room: {{code}}</h2>
     <h2> User Name: {{name}}</h2>
-    <button type="button" name="print" id="print-btn" onclick="printChat()">Print Chat</button>
+
     <div class="messages" id="messages"></div>
     <div class="input">
         <input type="text" rows="3" placeholder="Message" name="message" id="message"/>
         <button type="button" name="send" id="send-btn" onclick="sendMessage()">Send </button>
-        <button type="button" name="save" id="save-btn" onclick="saveMessages()">Save Messages</button>
+    </div>
+    <div class="input">
         <button type="button" name="record" id="record-btn" onclick="startRecording()">Record Message</button>
-
-
-
+        <button type="button" name="stop" id="stop-btn" onclick="stopRecording()">Stop Recording</button>
+        <button type="button" name="save" id="save-btn" onclick="saveMessages()">Save Messages</button>
+        <button type="button" name="print" id="print-btn" onclick="printChat()">Print Chat</button>
+        <button onclick="getAndReadMessages()">Read messages</button>
     </div>
 </div>
 <script type="text/javascript">
@@ -63,6 +65,14 @@
     const printChat = () => {
         window.print();
     };
+    const toggleRecording = () => {
+        if (recognition && recognition.isRecording) {
+            stopRecording();
+        } else {
+            startRecording();
+        }
+    };
+
     const startRecording = () => {
         if ('webkitSpeechRecognition' in window) {
             recognition = new webkitSpeechRecognition();
@@ -81,13 +91,71 @@
 
             recognition.onend = () => {
                 console.log('Speech recognition ended');
+                recognition.isRecording = false;
             };
 
             recognition.start();
+            recognition.isRecording = true;
         } else {
             alert('Speech recognition is not supported in your browser.');
         }
     };
+
+    const stopRecording = () => {
+        if (recognition && recognition.isRecording) {
+            recognition.stop();
+        }
+    };
+
+function getAndReadMessages() {
+    fetch('/getMessages', {
+        method: 'GET',
+        headers: {
+            'Content-Type': 'application/json'
+            // You may need to add additional headers if required
+        }
+    })
+    .then(response => {
+        if (!response.ok) {
+            throw new Error(`HTTP error! Status: ${response.status}`);
+        }
+        return response.json();
+    })
+    .then(data => {
+        // Check if the data contains messages and it is not an empty array
+        if (data && data.messages && Array.isArray(data.messages) && data.messages.length > 0) {
+            // Use the SpeechSynthesis API to read each message
+            data.messages.forEach(function(msg) {
+                var text = msg.name + ', ' + msg.message;
+                speakMessage(text);
+            });
+        } else {
+            alert('No new messages.');
+            console.error('No new messages or invalid response format.');
+        }
+    })
+    .catch(error => {
+        console.error('Error fetching messages:', error);
+    });
+}
+
+function speakMessage(text) {
+    // Check if the browser supports the SpeechSynthesis API
+    if ('speechSynthesis' in window) {
+        var synthesis = window.speechSynthesis;
+        var utterance = new SpeechSynthesisUtterance(text);
+
+        // Optionally, you can set additional properties on the utterance
+        // utterance.voice = synthesis.getVoices()[0];
+        // utterance.rate = 1.0;
+        // utterance.pitch = 1.0;
+
+        synthesis.speak(utterance);
+    } else {
+        console.error("SpeechSynthesis API not supported in this browser.");
+    }
+}
+
 
 
 

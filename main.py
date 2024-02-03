@@ -4,6 +4,8 @@ import random
 from string import ascii_uppercase
 from flask import send_file
 from docx import Document
+from reportlab.pdfgen import canvas
+
 
 
 app= Flask(__name__)
@@ -96,6 +98,12 @@ def disconnect():
     send({"name": name, "message": "has left the room"}, to=room)
     print(f"{name} has left the room {room}")
 
+
+@app.route("/getMessages", methods=["GET"])
+def getMessages():
+    room = session.get("room")
+    print(rooms[room]["messages"])
+    return {"messages": rooms[room]["messages"]}  # Return as JSON
 @app.route("/save_messages", methods=["POST"])
 def save_messages():
     room = session.get("room")
@@ -106,22 +114,25 @@ def save_messages():
     if not messages:
         return redirect(url_for("room"))
 
-    # Create a Word document
-    doc = Document()
-    doc.add_heading(f"Chat Room: {room}", level=1)
+    # Create a PDF document
+    file_path = f"messages_{room}.pdf"
+    with open(file_path, "wb") as pdf_file:
+        pdf = canvas.Canvas(pdf_file)
+        pdf.setTitle(f"Chat Room: {room}")
 
-    # Add messages to the document
-    for message in messages:
-        doc.add_paragraph(
-            f"{message['name']}: {message['message']}"
-        )
+        # Add messages to the PDF
+        y_position = 750  # Starting y position
+        pdf.drawString(100, y_position, f"Chat Room :{room}")
+        y_position -= 20  # Adjust for the next line
+        for message in messages:
+            pdf.drawString(100, y_position, f"{message['name']}: {message['message']}")
+            y_position -= 20  # Adjust for the next line
 
-    # Save the document to a file
-    file_path = f"messages_{room}.docx"
-    doc.save(file_path)
+        pdf.save()
 
-    # Send the Word file as a response
+    # Send the PDF file as a response
     return send_file(file_path, as_attachment=True)
+
 
 if __name__ == "__main__":
     socketio.run(app, debug=True)
