@@ -3,11 +3,13 @@
 <div class="message-box">
     <h2> Chat Room: {{code}}</h2>
     <h2> User Name: {{name}}</h2>
+    <button type="button" name="leave" id="leave-btn" onclick="leave()">Leave Chat</button>
 
     <div class="messages" id="messages"></div>
     <div class="input">
         <input type="text" rows="3" placeholder="Message" name="message" id="message"/>
         <button type="button" name="send" id="send-btn" onclick="sendMessage()">Send </button>
+
     </div>
     <div class="input">
         <button type="button" name="record" id="record-btn" onclick="startRecording()">Record Message</button>
@@ -34,6 +36,11 @@
 
         `;
         messages.innerHTML +=content;
+    };
+     const leave = () => {
+        socketio.emit("leave");
+        // Optionally, you can redirect the user to the home page or another page after leaving
+         window.location.href = "{{ url_for('home') }}";
     };
     socketio.on("message",(data)=>{
         createMessage(data.name,data.message);
@@ -155,6 +162,7 @@ function speakMessage(text) {
         console.error("SpeechSynthesis API not supported in this browser.");
     }
 }
+
 
 
 

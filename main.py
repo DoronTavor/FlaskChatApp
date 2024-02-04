@@ -3,6 +3,7 @@ from flask_socketio import join_room,leave_room,send,SocketIO
 import random
 from string import ascii_uppercase
 from flask import send_file
+
 from docx import Document
 from reportlab.pdfgen import canvas
 
@@ -22,6 +23,7 @@ def generate_unique_code(length):
             break
 
     return code
+
 
 @app.route('/',methods=["POST","GET"])
 def home():
@@ -43,6 +45,7 @@ def home():
             room = generate_unique_code(4)
             rooms[room]= {"members" : 0, "messages":[]}
         elif code not in rooms:
+            print(code)
             return render_template("home.html", error="Room does not exist.",code=code,name=name)
 
         session["room"]= room
@@ -50,7 +53,37 @@ def home():
         return redirect(url_for("room"))
 
     return render_template("home.html")
+@socketio.on("leave")
+def leave():
+    room = session.get("room")
+    name = session.get("name")
 
+    if room is not None and room in rooms:
+        leave_room(room)
+        rooms[room]["members"] -= 1
+
+        if rooms[room]["members"] <= 0:
+            del rooms[room]
+
+        socketio.emit("message", {"name": name, "message": "has left the room"}, room=room)
+
+    session.clear()
+@app.route("/leave", methods=["POST"])
+def leave():
+    room = session.get("room")
+    name = session.get("name")
+
+    if room is not None and room in rooms:
+        leave_room(room)
+        rooms[room]["members"] -= 1
+
+        if rooms[room]["members"] <= 0:
+            del rooms[room]
+
+        socketio.emit("message", {"name": name, "message": "has left the room"}, room=room)
+
+    session.clear()
+    return redirect(url_for("home"))
 @app.route("/room")
 def room():
     room = session.get("room")
@@ -114,15 +147,15 @@ def save_messages():
     if not messages:
         return redirect(url_for("room"))
 
-    # Create a PDF document
-    file_path = f"messages_{room}.pdf"
+    # Get the file path from the request data or provide a default
+    file_path = request.form.get("file_path", f"messages_{room}.pdf")
+
     with open(file_path, "wb") as pdf_file:
         pdf = canvas.Canvas(pdf_file)
-        pdf.setTitle(f"Chat Room: {room}")
-
-        # Add messages to the PDF
+        title_font = pdf.setFont("Helvetica-Bold", 16)
+        title_text = f"Chat Room: {room}"
         y_position = 750  # Starting y position
-        pdf.drawString(100, y_position, f"Chat Room :{room}")
+        pdf.drawString(100, y_position, title_text)
         y_position -= 20  # Adjust for the next line
         for message in messages:
             pdf.drawString(100, y_position, f"{message['name']}: {message['message']}")
@@ -132,7 +165,6 @@ def save_messages():
 
     # Send the PDF file as a response
     return send_file(file_path, as_attachment=True)
-
 
 if __name__ == "__main__":
     socketio.run(app, debug=True)
